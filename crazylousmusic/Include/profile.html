@@ -1,0 +1,606 @@
+<?php
+include("dbfile.php");
+
+
+    $errors = array();
+	$firstname = "";
+	$lastname="";
+	$email="";
+	$password="";
+	$password_show="";
+	$confirm = "";
+	$street = "";
+	$suite="";
+	$city="";
+	$province="";
+	$country = "";
+	$homephone = "";
+	$workphone = "";
+	$cellphone = "";
+	$extension="";
+	$message="";
+	
+	session_start();
+	$browsersess = session_id();
+	
+		
+		//get user
+	$custID = Validate_User_Logged_In($browsersess);
+	
+	if($custID > 0 )
+	{
+		// set up screen
+		load_provinces();
+		load_countrys();
+		//load screen with profile data
+		Load_Customer_Data();
+		Load_Customer_Phones("H");
+		Load_Customer_Phones("W");
+		Load_Customer_Phones("C");
+	}
+	else
+	{
+		header('Location: ./index.php');
+	}
+		
+			if(isset($_POST['save']))
+	{
+		//will save the changes
+		$firstname= $_POST['firstname'];				
+		$lastname=$_POST['lastname'];				
+		$email=$_POST['email'];				
+		$password = $_POST['pswd'];	
+		$password_show = $_POST['pswd'];	
+		$confirm=$_POST['confirm'];				
+		$street=$_POST['street'];				
+		$suite=$_POST['suite'];				
+		$city=$_POST['city'];				
+		$province=$_POST['province'];	
+		$postal = $_POST['postalcode'];
+		$country = $_POST['country'];			
+		$homephone = $_POST['homephone'];				
+		$workphone = $_POST['worknumber'];				
+		$cellphone = $_POST['cellphone'];				
+		$extension=$_POST['extension'];		
+//validate all information before saving 
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		validateInput($firstname,'firstname');
+		validateInput($lastname,'lastname');
+		validateInput($email,'email');
+		validateInput($password,'password');
+		validateInput($street,'street');
+		validateInput($city,'city');
+		validateInput($province,'province');
+		validateInput($postal,'postal');
+		validateInput($country,'country');
+		// all input entered
+		ValidatePassword($password,$confirm,'confirm');
+		ValidatePhone($homephone,$workphone,$cellphone,'phone');
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		if(Update_Customer($firstname,$lastname,$email,$password))
+		{
+		
+		}
+		  // update the address
+			if(Update_Address( $street,$suite,$city,$province,$country,$postal ))  
+			{
+				
+			}
+			
+			if(!empty($homephone))
+				{ 
+				    Update_Phone_Numbers($homephone,'','H');
+				}
+				if(!empty($workphone))
+				{
+				    Update_Phone_Numbers($workphone,$extension,'W');
+				}
+				if(!empty($cellphone))
+				{
+				     Update_Phone_Numbers($cellphone,'','C');
+				}
+		
+	}
+	else if (isset($_POST['cancel']))
+	{		
+		header('Location: ./landingpage.php');
+	}
+	else
+	{
+	}
+		
+		
+		
+	
+	
+	
+	
+	
+	
+	
+	
+	function clearscreen()
+	{
+	$firstname = "";
+	$lastname="";
+	$email="";
+	$password="";
+	$confirm = "";
+	$street = "";
+	$suite="";
+	$city="";
+	$province="";
+	$country = "";
+	$homephone = "";
+	$workphone = "";
+	$cellphone = "";
+	$extension="";
+	$message ="";
+	}
+	function ValidatePassword($password,$confirm,$theerror)
+	{
+		global $errors,$message;;
+		if($password != $confirm)
+		{
+			$errors[$theerror]="*";
+			$message ="Passwords do not match";
+		}
+		else
+		{
+		$password = md5($password);
+		}
+	}
+	function validateInput($input, $theerror)
+	{
+		global $errors,$message;
+		$input = trim($input);
+		if(empty($input))
+		{
+			$errors[$theerror]="*";
+			$message ="Please fill in all the required fields";
+		}		
+	}
+	
+	
+	
+	
+	
+	
+	
+	
+	
+function Validate_User_Logged_In()
+	{
+		global $connection, $browsersess;
+		$sql ="call session_verify_logged_in('$browsersess')";
+		$connection->next_result();
+		$result = $connection->query($sql);
+		if($result->num_rows)
+		{
+		
+			$row = $result->fetch_row();			
+			$custID = $row[0];
+			return $custID;
+			
+		}	
+		else
+		{
+			return 0;
+		}
+	}
+	
+	
+	
+	
+function load_provinces()
+{
+	global $connection, $provincerows, $retrieved;	
+	$sql = "call provinces_load()";
+	$connection->next_result();
+	$retrieved = $connection->query($sql);
+	if($retrieved->num_rows)
+	{
+		if($retrieved->num_rows)
+		{
+			$provincerows = $retrieved->fetch_all(MYSQLI_ASSOC);	
+			
+		}
+		$connection->next_result();
+	}
+	else
+	{	
+	//  die('Database Query Failed Provinces');
+	}
+}
+	
+	
+function load_countrys()
+{
+	global $connection, $countryrows, $retrieved;
+	
+	$sql = "call countries_load()";	
+	$connection->next_result();
+	$retrieved = $connection->query($sql);	
+	if($retrieved->num_rows)
+	{
+		
+		if($retrieved->num_rows)
+		{
+			$countryrows = $retrieved->fetch_all(MYSQLI_ASSOC);					
+		}
+		$connection->next_result();
+	
+	}
+	else
+	{	
+	  die('Database Query Failed countries');
+	}
+}
+
+
+
+
+
+
+
+
+
+function Load_Customer_Data()
+	{
+		global $connection, $custID, $firstname,$lastname,$email,$street,$suite,$city,$province,$country, $postal;
+		$sql = "call customer_address_load_by_id($custID)";
+		$connection->next_result();
+		$result = $connection->query($sql);
+		
+		if($result->num_rows)
+		{
+	
+			$row = $result->fetch_assoc();	
+			
+			$lastname = $row['lastname'];
+			$firstname = $row['firstname'];
+			$email = $row['email'];
+			$street = $row['streetaddress'];
+			$suite = $row['suite'];
+			$city = $row['city'];
+			$province = $row['province_short'];
+			$postal =  $row['postalcode'];
+			$country = $row['country_short'];
+			
+			return $custID;
+		}	
+		else
+		{
+			return 0;
+		}
+		
+	}
+	
+		function Load_Customer_Phones($type)
+	{
+		global $connection, $custID, $homephone,$workphone,$cellphone,$extension;
+		if($type == "W")
+		{
+			$sql = "call phonenumbers_load_by_ID_type($custID,'W')";
+			$connection->next_result();
+			$result = $connection->query($sql);
+			if($result)
+			{
+				if($result->num_rows)
+				{				
+					$row = $result->fetch_row();			
+					$workphone = $row[0];
+					$extension = $row[1];						
+				}
+				else
+				{
+					$workphone= "";
+					$extension = "";
+				}
+			}
+			else
+			{
+					$workphone= "";
+					$extension = "";
+			}
+		}
+		elseif($type == "H")
+		{
+		    $sql = "call phonenumbers_load_by_ID_type($custID,'H')";
+			
+			$connection->next_result();			
+			$result = $connection->query($sql);
+			if($result)
+			{
+			
+				if($result->num_rows >0)
+				{
+					$row = $result->fetch_row();			
+					$homephone = $row[0];	
+						
+				}
+				else
+				{
+					$homephone="";				
+				}
+			}
+			else
+			{
+					$homephone="";				
+			}
+			
+		}
+		elseif($type == "C")
+		{
+			$sql = "call phonenumbers_load_by_ID_type($custID,'C')";
+			$connection->next_result();
+			$result = $connection->query($sql);
+			
+			if($result)
+			{
+				if($result->num_rows)
+				{
+					$row = $result->fetch_row();			
+					$cellphone = $row[0];				
+				}
+				else
+				{
+					$cellphone="";				
+				}
+			}
+			else
+			{
+				$cellphone="";			
+			}
+		}
+		
+	
+	}
+	
+	
+	
+	
+	
+	
+	
+	function Update_Customer($fname,$lname,$email,$pswd)
+	{
+		global $connection, $custID;
+		
+		  $sql = "call customer_update($custID,'$fname','$lname','$email', '$pswd')";
+			$connection->next_result();				
+			$result = $connection->query($sql);
+			if($result)
+			{
+				if($connection->affected_rows > 0 )
+				{	
+					
+					return 1;
+				}
+				else
+				{
+					return 0;
+				}
+			}
+			else
+			{
+				return 0;
+			}
+	}
+	function Update_Address($street,$suite,$city,$prov,$country,$postal) 
+	{
+		global $connection, $custID;
+		// inactive the present address
+		$sql = "call address_inactive($custID)";
+		$connection->next_result();
+		$result = $connection->query($sql);
+		//insert new address
+		$connection->next_result();
+		$sql = "call addresses_insert( $custID,'$street','$suite','$city','$prov','$country','$postal')";
+	
+		$result = $connection->query($sql);	
+
+		if($result)
+		{
+			return 1;
+		}
+		else
+		{
+			return 0;
+		}
+	}
+	
+	function Update_Phone_Numbers($phone,$ext,$type)
+	{         
+		global $connection, $custID;
+		$sql = "call phonenumber_inactive($custID, '$type')";
+		$connection->next_result();
+		$result = $connection->query($sql);
+		if($result)
+		{
+			$sql ="call phonenumbers_insert($custID,'$phone', '$ext', '$type')";
+			$connection->next_result();
+			$result = $connection->query($sql);
+			if($result)
+			{
+				return 1;
+			}
+			else
+			{
+				return 0;
+			}
+		}
+		else
+		{
+			return 0;
+		}
+		
+	}
+		
+
+	
+	
+	
+	function ValidatePhone($home,$work,$cell,$theerror)
+	{
+		global $message,$errors;
+		if(empty($home) && empty($work) && empty($cell))
+		{
+			$errors[$theerror];
+			$message="At least one phone number must be entered";
+		}
+	}
+	
+	
+	
+	
+	
+?>
+<form method="POST" action="" autocomplete="off">
+<div class="divPage">
+	<div class="bodyContent">
+		<h2>Change Profile</h2>
+		<h3>Personal</h3>
+		<div class="row">
+			<label class="rowtextlabel">First Name</label>
+			<input class="rowinput" type="text" name="firstname" id="fname" maxlength="40" value="<?php echo $firstname; ?>" />
+			<div class="errorStar">
+				<?php if(isset($errors['firstname'])) echo $errors['firstname'];?>				
+			</div>	
+			<label class="rowtextlabelright">Last Name</label>
+			<input class="rowinput" type="text" name="lastname" id="lname" maxlength="40" value="<?php echo $lastname; ?>"/>
+			<div class="errorStar">
+				<?php if(isset($errors['lastname'])) echo $errors['lastname'];?>				
+			</div>
+		</div>
+		<br />
+		<div class="row">
+			<label class="rowtextlabel">Email</label>
+			<input class="rowinputemail" type="text" name="email" id="email" maxlength="255" value="<?php echo $email; ?>" />		
+			<div class="errorStar">
+				<?php if(isset($errors['email'])) echo $errors['email'];?>				
+			</div>
+		</div>
+		<br />
+		<div class="row">
+			<label class="rowtextlabel">Password</label>
+			<input class="rowinput" type="password" name="pswd" id="pswd" maxlength="15" value="<?php echo $password_show; ?>"/>
+			<div class="errorStar">
+				<?php if(isset($errors['password'])) echo $errors['password'];?>				
+			</div>
+			<label class="rowtextlabelright">confirm</label>
+			<input class="rowinput" type="password" name="confirm" id="confirm"  value="<?php echo $confirm; ?>"/>
+			<div class="errorStar">
+				<?php if(isset($errors['confirm'])) echo $errors['confirm'];?>				
+			</div>
+		</div>
+		<br />
+		<h3>Address</h3>
+		<div class="row">
+			<label class="rowtextlabel">Street</label>
+			<input class="rowinput" type="text" name="street" id="street" maxlength="125" value="<?php echo $street; ?>"/>
+			<div class="errorStar">
+				<?php if(isset($errors['street'])) echo $errors['street'];?>				
+			</div>
+			<label class="rowtextlabelright">suite</label>
+			<input class="rowinput" type="text" name="suite" id="suite" maxlength="8" value="<?php echo $suite; ?>" />			
+		</div>
+		<br />
+		<div class="row">
+			<label class="rowtextlabel">City</label>
+			<input class="rowinput" type="text" name="city" id="city"  maxlength="35" value="<?php echo $city; ?>"/>
+			<div class="errorStar">
+				<?php if(isset($errors['city'])) echo $errors['city'];?>				
+			</div>
+			<label class="rowtextlabelright">province</label>
+			&nbsp;
+			<select  name="province" selected="<?php echo $province; ?>">  
+			<option value="">Select</option>
+					<?php foreach( $provincerows as $prov ){ ?>
+					<option value=" <?php echo $prov['shortvalue']; ?>"> <?php echo $prov['province']; ?> </option>
+					
+					
+					<?php }?>
+					
+			</select>
+			<div class="errorStar">
+				<?php if(isset($errors['province'])) echo $errors['province'];?>				
+			</div>
+		</div>
+		<div class="row">
+		
+		<label class="rowtextlabel">Postal</label>
+			<input class="rowinput" type="text" name="postalcode" id="postalcode" maxlength="7" value="<?php echo $postal; ?>"/>
+				<div class="errorStar">
+				<?php if(isset($errors['postalcode'])) echo $errors['postalcode'];?>				
+			</div>	
+		
+		
+			<label class="rowtextlabel">Country</label>				
+			&nbsp;
+			<select name= "country" value="<?php echo $country; ?>">  
+				<option value="">Select</option>
+				<?php  foreach ( $countryrows as $country ){ ?>
+				<option value=" <?php echo $country['shortvalue']; ?>"> <?php echo $country['country']; ?> </option>
+				<?php }?>
+			</select>
+			<div class="errorStar">
+				<?php if(isset($errors['country'])) echo $errors['country'];?>				
+			</div>
+		</div>
+		<br />
+		<h3>Contact Numbers</h3>
+		<div class="row">
+			<label class="rowtextlabel">Home</label>
+			<input class="rowinput" type="text" name="homephone" id="homephone" maxlength="14" value="<?php echo $homephone; ?>" />
+			<label class="rowtextlabelright">Cell</label>
+			<input class="rowinput" type="text" name="cellphone" id="cellphone" maxlength="14" value="<?php echo $cellphone; ?>"/>			
+		</div>
+		<br />
+		<div class="row">
+			<label class="rowtextlabel">Work</label>
+			<input class="rowinput" type="text" name="worknumber" id="cellnumber" maxlength="14" value="<?php echo $workphone; ?>"/>
+			<label class="rowtextlabel">Extension</label>
+			<input class="rowinput" type="text" name="extension" id="ext" maxlength="14" value="<?php echo $extension; ?>"/>
+		</div>
+		<br />
+		<div class="divCenter" >
+		<br />
+			<div class="errorStar">
+				<?php if(!empty($message)) echo $message;?>				
+			</div>
+		<br />
+             <!-- Save submitted information-->
+		<input class="button" type="submit" name="save" id="savebutton" value="Save Changes" />
+            <!-- clear and cancel submitted information-->
+		<input class="button" type="submit" name="cancel" id="cancelbutton" value="Cancel" />
+		
+		
+		</div>
+		</div>
+</div>
+</form>

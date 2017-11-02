@@ -1,0 +1,258 @@
+<?php
+	$invoicenumber ="";
+	$customername="";
+	$amount="";		
+	$subtotal="";
+	$taxes="";
+	$total="";
+	$customername = "";
+	$orderid = ""; 
+	$itemsrow= "";
+	$orderamount ="";
+	session_start();
+	$browsersess = session_id();
+	$custID= Validate_User_Logged_In();	
+	
+	
+	
+	if ($custID)
+	{
+	
+	
+	
+	
+		Customer_Info($custID);
+		if(invoice_max_customer($custID))
+		{
+			if(load_orderDetails_by_Order())
+			{
+				Calculate_summary();
+			}
+		}
+	
+	
+	
+	}
+	else
+	{
+			header('Location: ./index.php');
+	}
+	
+	
+	
+	
+	
+	
+	if(isset($_POST['landing']))
+	{
+		header('Location: ./landingpage.php');
+	}
+	
+function Customer_Info($custID)
+{
+	global $connection, $customername; 
+		$sql ="call customer_address_load_by_id('$custID')";
+		$connection->next_result();
+		$result = $connection->query($sql);
+		if($result->num_rows)
+		{
+			$row = $result->fetch_row();			
+			$fname = $row[1];
+			$lname = $row[2];
+			$customername = $fname." ".$lname;			
+			return 1;
+		}	
+		else
+		{
+			return 0;
+		}
+}
+function invoice_max_customer($custid)
+{
+	global $connection, $invoicenumber,$orderid; 
+		$sql ="call invoice_load_max_record($custid)";
+		$connection->next_result();
+		if($result = $connection->query($sql))
+		{
+			if($result->num_rows)
+			{
+				$row = $result->fetch_row();			
+				$invoicenumber = $row[0];				// get the invoice number			
+				$sql ="call invoice_load_by_id($invoicenumber)"; 
+				$connection->next_result();
+				if($result = $connection->query($sql)) 
+				{
+				  if($result->num_rows)
+				  {
+					$row = $result->fetch_row();
+					$orderid = $row[3];				
+					return 1;
+				   }
+				   else
+				   {
+					return 0;
+				   }
+				}
+				else
+				{
+					return 0;
+				}
+			}	
+			else
+			{
+				return 0;
+			}
+		}
+		else
+		{
+			return 0;
+		}
+}
+function Validate_User_Logged_In()
+{
+		global $connection, $browsersess;
+		$sql ="call session_verify_logged_in('$browsersess')";
+		$connection->next_result();
+		$result = $connection->query($sql);
+		if($result->num_rows)
+		{
+			$row = $result->fetch_row();			
+			$custID = $row[0];
+			return $custID;
+		}	
+		else
+		{
+			return 0;
+		}
+}	
+
+
+function load_orderDetails_by_Order()
+{
+	global $connection,$orderid, $itemsrow;
+	$sql = "call orderdetails_load_by_order_id($orderid)";	
+	
+	$connection->next_result();
+	if($retrieved = $connection->query($sql))
+	{		
+		if($retrieved->num_rows)
+		{
+			$itemsrow = $retrieved->fetch_all(MYSQLI_ASSOC);	
+           	return 1;
+        }
+		else
+		{
+			return 0;
+		}
+	}
+	else
+	{
+		return 0;
+	}	
+}
+function Calculate_summary()
+{
+	global $connection, $subtotal, $orderid, $taxes, $total,$orderamount;
+	$sql = "call orderdetails_load_by_order_id($orderid)";	
+	$connection->next_result();
+	if($retrieved = $connection->query($sql))
+	{		
+		if($retrieved->num_rows)
+		{
+			$itemsrow = $retrieved->fetch_all(MYSQLI_ASSOC);			
+			foreach($itemsrow as $item)
+			{			
+				$subtotal = $subtotal + $item['total'];
+			}	
+			$sql = "call taxrate_load_active()";	
+			$connection->next_result();
+			if($retrieved = $connection->query($sql))
+			{
+				if($retrieved->num_rows)
+				{
+					$taxrow = $retrieved->fetch_row();
+					$taxrate = $taxrow[1];
+					$taxes = $subtotal * $taxrate;
+					$total = $subtotal + $taxes;
+					$orderamount = $total;
+				}							
+			}	
+		}
+		else
+		{
+		}		
+	}
+}
+
+?>
+<form method="POST" action="">
+<div class="divPage">
+	<div class="bodyContent">		
+		<h2>Reciept</h2>
+		<input type = "submit" name ="landing" value="Return to Landing Page"/>
+		<div class="labelStyle2">
+		    <div class="dark">
+			<label for="ordernumber" class="dark">Invoice #</label>
+			</div>		
+			<div class="light">
+			    <input type="text" name = "invoicenumber" id ="invoicenumber" value = "<?php echo $invoicenumber; ?>"/>				
+			</div>
+			<div class="dark">	
+			<label for="customername">Customer</label>
+			</div>	
+			<div class="light">
+			<input type="text" name = "customername" id ="customername" value = "<?php echo $customername; ?>"/>							
+			</div>
+			<div class="dark">
+				<label for="amount">Amount </label>	
+			</div>
+			<div class="light">
+				<input type="text" name = "orderamount" id ="orderamount" value = "<?php echo $orderamount; ?>"/>				
+			</div>
+		</div>
+		<br />
+		<br />
+		<h2>Order Details</h2>
+		<table>
+				<thead>
+					<tr>
+						<th class="tablecolumnlarge">Creation</th>
+						
+						<th class="tablecolumn">Price</th>
+						<th class="tablecolumn">Qty</th>
+						<th class="tablecolumn">Total</th>						
+					</tr>
+					<tbody>
+					<?php						
+						foreach($itemsrow as $item):																
+					?>
+						<tr>
+							<td><?php echo $item['albumname']; ?></td>
+							
+							<td><?php echo $item['price_unit']; ?></td>
+							<td><?php echo $item['quantity']; ?></td>
+							<td><?php echo $item['total']; ?></td>						
+						</tr>
+					<?php				
+					endforeach;
+					?>
+					</tbody>
+					
+				</thead>
+			</table>
+		<div class= "taxesdisplay" >
+			     Sub Total :
+				 <input type="text" name = "subtotal" id="subtotal" readonly value="$<?php echo $subtotal; ?>" />				
+			</div>
+			<div class= "taxesdisplay" >
+				Taxes :
+				 <input type="text" name = "taxes" id="taxes" readonly value="$<?php echo $taxes; ?>" />				
+				
+			</div>
+			<div class= "taxesdisplay" >
+				Total :
+				<input type="text" name = "total" id="total" readonly value="$<?php echo $total; ?>" />								
+			</div>
+	</div>
+</div>
+</form>	

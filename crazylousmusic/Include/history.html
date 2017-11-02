@@ -1,0 +1,386 @@
+<?php
+include('./dbfile.php');
+
+$row_orders="";
+$order_selected="";
+$order_date="";
+$items_num="";
+$itemsrow="";
+$taxes="";
+$subtotal="";
+$total="";
+
+
+
+session_start();
+$browsersess = session_id();
+$custID= Validate_User_Logged_In();
+
+if ( $custID )
+{
+
+ if ( load_orders_by_cust_id())
+ {
+        
+	if ( isset($_POST['view']) )
+		{
+			
+		reload_screen();
+		
+		load_orders_date_by_order_id();
+		load_orderDetails_by_Order();
+		 Calculate_summary();
+		
+		
+		
+		
+		
+		
+		
+		}
+		else
+		{
+
+
+		
+		$order_selected="";
+		$order_date="";
+
+		}
+
+	
+ 
+ 
+ 
+ }
+
+
+
+
+
+
+}
+else
+{
+  		header('Location: ./index.php');
+}
+
+
+
+
+
+
+
+
+
+	function Validate_User_Logged_In()
+{
+		global $connection, $browsersess;
+		$sql ="call session_verify_logged_in('$browsersess')";
+		$connection->next_result();
+		$result = $connection->query($sql);
+		if($result->num_rows)
+		{
+			$row = $result->fetch_row();			
+			$custID = $row[0];
+			return $custID;
+		}	
+		else
+		{
+			return 0;
+		}
+}
+
+
+function load_orders_by_cust_id()
+{
+		global $connection, $custID,$row_orders;
+		
+		$sql = " call order_load_by_customer_id($custID)";
+		$connection->next_result();
+		$result = $connection->query($sql);
+		if($result->num_rows)
+		{
+			$row_orders = $result->fetch_all(MYSQLI_ASSOC);			
+			
+			return 1;
+		}	
+		else
+		{
+			return 0;
+		}
+		
+
+}
+
+
+
+function load_orders_date_by_order_id()
+{
+	global $connection,$order_date, $order_selected;
+	
+	$sql = " call load_orders_date_by_order_id('$order_selected') ";
+		$connection->next_result();
+		$result = $connection->query($sql);
+		if($result->num_rows)
+		{
+			$row = $result->fetch_row();
+			$order_date = $row[0];
+			
+			
+			return 1;
+		}	
+		else
+		{
+			return 0;
+		}
+		
+		
+
+
+}
+
+
+
+
+
+
+
+function reload_screen()
+	{
+		global $order_selected ;
+		
+		
+		
+		
+		
+		$order_selected  = $_POST['orderid'];
+		
+		
+			
+	
+
+	}
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	function load_orderDetails_by_Order()
+{
+	global $connection,$order_selected, $itemsrow,  $items_num ;
+	$sql = "call orderdetails_load_by_order_id($order_selected)";	
+	$connection->next_result();
+	if($retrieved = $connection->query($sql))
+	{		
+	
+	
+	
+	    $items_num = $retrieved->num_rows;
+		
+		
+		
+		
+		
+		if($retrieved->num_rows)
+		{
+			$itemsrow = $retrieved->fetch_all(MYSQLI_ASSOC);		
+        }
+	}
+	else
+	{
+	}	
+}
+
+
+
+
+
+
+function Calculate_summary()
+{
+	global $connection, $subtotal, $order_selected, $taxes, $total;
+	$sql = "call orderdetails_load_by_order_id($order_selected)";	
+	$connection->next_result();
+	if($retrieved = $connection->query($sql))
+	{		
+		if($retrieved->num_rows)
+		{
+			$itemsrow = $retrieved->fetch_all(MYSQLI_ASSOC);			
+			foreach($itemsrow as $item)
+			{			
+				$subtotal = $subtotal + $item['total'];
+			}	
+			$sql = "call taxrate_load_active()";	
+			$connection->next_result();
+			if($retrieved = $connection->query($sql))
+			{
+				if($retrieved->num_rows)
+				{
+					$taxrow = $retrieved->fetch_row();
+					$taxrate = $taxrow[1];
+					$taxes = $subtotal * $taxrate;
+					$total = $subtotal + $taxes;					
+				}			
+				
+			}
+		
+		
+	}
+	else
+	{
+	}	
+	}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+?>
+<div class="divPage">
+	<div class="bodyContent">
+		<h3>View History7</h3>
+		<div class="row">
+			<div class="orderdropdown">
+				
+				<form  action="" method="POST" >
+				
+				<label class="rowtextlabel">Order #</label>	
+				&nbsp;
+				<select class="myselect" name="orderid">  
+					<option value="-1">Select</option>
+                   <?php foreach($row_orders as $order):?>
+							<option value ="<?php echo $order['orderid'] ?>" <?php if($order_selected == $order['orderid']) echo 'selected="selected"' ?>><?php echo $order['orderid']?></option>
+							
+					<?php endforeach;?>
+
+
+
+					
+				</select>										
+			</div>	
+			&nbsp;
+            <!-- display the history information-->
+			<input type="submit" name="view" value="View Details" />
+			
+			</form>
+			
+		</div>
+		<br />
+		<br />
+		<div class="divcolumnheader">
+			<label>Num Items</label>	
+		</div>
+		<div class="divcolumnheader">
+			<label>Date</label>	
+		</div>
+		<div class="divcolumnheader">
+			<label class="divcolumnheader">Amount $</label>	
+		</div>
+		
+		<br />
+		<div class="divcolumn">
+				<input class="rowinput" type="text" name="numitems" id="numitems"     value=" <?php echo $items_num; ?>  " />
+		</div>
+		<div class="divcolumn">
+				<input class="rowinput" type="text" name="orderdate" id="orderdate" value="<?php  echo $order_date  ;   ?>" />
+		</div>
+		<div class="divcolumn">
+				<input class="rowinput" type="text" name="amount" id="amount"   value="<?php  echo  $total  ;   ?>" />
+		</div>
+		
+		<br />
+		
+		<div class="divbox">
+			<h3>Order Details</h3>
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			<?php
+			if($itemsrow)
+			{
+			?>
+			
+			<table>
+				<thead>
+					<tr>
+						<th class="tablecolumnlarge">Album</th>
+						
+						
+						<th class="tablecolumn">Price</th>
+						<th class="tablecolumn">Qty</th>
+						<th class="tablecolumn">Total</th>						
+					</tr>
+					<tbody>
+					<?php						
+						foreach($itemsrow as $item):																
+					?>
+						<tr>
+							<td><?php echo $item['albumname']; ?></td>
+							
+							
+							<td><?php echo $item['price_unit']; ?></td>
+							<td><?php echo $item['quantity']; ?></td>
+							<td><?php echo $item['total']; ?></td>						
+						</tr>
+					<?php				
+					endforeach;
+					?>
+					</tbody>
+					
+				</thead>
+			</table>
+			<?php
+			}
+			?>
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+		</div>
+	</div>
+</div>

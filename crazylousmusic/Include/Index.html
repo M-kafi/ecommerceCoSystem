@@ -1,0 +1,64 @@
+<?php
+   $errors = array();
+   $email = "";
+   $password ="";   
+?>
+<form method="POST" action="processlogin.php" autocomplete="off">
+<div class="divPage">
+	<div class="divLeft">
+		<div class="headingleft">
+		This Project Done by:
+		</div>
+		<ul>
+			<li>PHP student: Mohamad Abdulkafi</li>
+			<li>Student ID: 101111661</li>
+			<li>Instructor: James Brouwer </li>
+			<li>Date: 2017/04/08</li>
+			
+		</ul>
+		
+	</div>
+    
+    
+    
+	<div class="divRight">
+	
+		<div class="headingright">
+		ALREADY HAVE A PROFILE
+		</div>
+		<div class="username">
+			<div class="usernametext">
+			Email
+			</div>
+			<div class="usernameinput">
+				<input name="email" id="email" type="text"  value="<?php $email; ?>"/>
+				<div class="errorStar">
+					<?php if(isset($errors['email'])) echo $errors['email'];?>				
+				</div>
+			</div>
+		</div>
+		<br />
+		<div class="username">
+			<div class="usernametext">
+				Password
+			</div>
+			<div class="usernameinput">
+				<input name="pswd" id="pswd" type="text" />
+				<div class="errorStar">
+					<?php if(isset($errors['password'])) echo $errors['password'];?>				
+				</div>
+			</div>
+		</div>
+		<br />
+		<br />
+		<div class="loginbutton">
+            <!-- go to process loging to check the submitted information and login-->
+			<input type="submit" name="login" id = "login" value = "LOGIN"/>			
+		</div>
+		<div class= "createprofileheading">
+            <!-- go to creat a new profile -->
+		 <a href="createprofile.php">Create Profile</a>
+		</div>
+	</div>
+</div>
+</form>

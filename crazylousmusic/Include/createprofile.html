@@ -1,0 +1,496 @@
+<?php
+include('./dbfile.php');
+
+
+		$firstname="";
+		$lastname="";
+		$email="";
+		$password="";
+		$confirm ="";
+		$street="";
+		$suite="";
+		$city="";
+		$province="";
+		$postal="";
+		$country="";
+		$homephone="";
+		$workphone="";
+		$cellphone="";
+		$extension="";
+		$custID  = "";
+		$message="";
+		
+		$provincerows;
+		$retrieved;
+		$retrievedcountries;
+		$countryrows;
+		
+		
+		//set up routine 
+		load_provinces();
+		load_countries(); 
+		
+		
+		
+	if(isset($_POST['save']))
+	{
+		//will save the information to the database 
+		$firstname=$_POST['firstname'];
+		$lastname=$_POST['lastname'];
+		$email=$_POST['email'];
+		$password=$_POST['pswd'];
+		$confirm =$_POST['confirm'];
+		$street=$_POST['street'];
+		$suite=$_POST['suite'];
+		$city=$_POST['city'];
+		$province=$_POST['province'];
+		$postal=$_POST['postalcode'];
+		$country=$_POST['country'];
+		$homephone=$_POST['homephone'];
+		$workphone=$_POST['workphone'];
+		$cellphone=$_POST['cellphone'];
+		$extension=$_POST['extension'];		
+		 $province;
+		$message ="Profile has been created";
+		// validate input was entered
+		validateInput($firstname,'firstname');
+		validateInput($lastname,'lastname');
+		validateInput($email,'email');
+		validateInput($password,'password');
+		validateInput($street,'street');
+		validateInput($city,'city');
+		validateInput($province,'province');
+		validateInput($postal,'postal');
+		validateInput($country,'country');
+		// all input entered
+		ValidatePassword($password,$confirm,'confirm');
+		ValidatePhone($homephone,$workphone,$cellphone,'phone');
+		if(count($errors) == 0)
+		{
+		
+		$custID = customer_insert( $firstname, $lastname, $email, md5( $password) );
+		
+		if ($custID > 0)
+		{
+		 
+		
+		  if ( address_insert ( $custID, $street,$suite,$city,$province,$country,$postal ) )
+		  {
+		  // address inserted
+		  
+		  if ( !empty($homephone) )
+		  {
+				 if ( phone_insert ( $homephone,"","H" ) )
+				{
+				$message ="Profile has been created";
+				}
+				else
+				{
+				exit();
+				}
+		  
+		  }
+		  
+		  if ( !empty($workphone) )
+		  {
+				 if ( phone_insert ( $workphone,$extension,"W" ) )
+				{
+				$message ="Profile has been created";
+				}
+				else
+				{
+				exit();
+				}
+		  
+		  }
+		  
+		   if ( !empty($cellphone) )
+		  {
+				 if ( phone_insert ( $workphone,$extension,"C" ) )
+				{
+				$message ="Profile has been created";
+				}
+				else
+				{
+				exit();
+				}
+		  
+		  }
+		  
+		  clearscreen();
+		  $message ="Profile has been created";
+		  
+		  
+		  
+		  
+		  
+		  
+		  
+		  
+		  
+		  }
+		  else
+		  
+			{
+			exit();
+			}
+
+		
+		
+		}
+		else
+		{
+			exit();
+		}
+		
+		
+		
+			
+		}
+		else
+		{
+			$message="All required fields must be entered";
+		}
+	}
+	else if(isset($_POST['clear']))
+	{
+		// will clear the screen
+		clearscreen();
+	}
+	else if(isset($_POST['return']))
+	{
+		//will clear the screen and send the user 
+		//back to the login page
+		header('Location: ./index.php');
+		
+	}
+	else
+	{
+		clearscreen();
+	}
+	function clearscreen()
+	{
+		global $firstname,$lastname,$email,$password,$confirm,$street,$suite,$city,$province,
+		$postal,$country,$homephone,$workphone,$cellphone, $extension;
+		$firstname="";
+		$lastname="";
+		$email="";
+		$password="";
+		$confirm ="";
+		$street="";
+		$suite="";
+		$city="";
+		$province="";
+		$postal="";
+		$country="";
+		$homephone="";
+		$workphone="";
+		$cellphone="";
+		$extension="";
+		$message ="";
+	}
+	
+	function ValidatePassword($password,$confirm,$theerror)
+	{
+		global $errors;
+		if($password != $confirm)
+		{
+			$errors[$theerror]="*";
+			$message ="Passwords do not match";
+		}
+	}
+		function validateInput($input, $theerror)
+	{
+		global $errors,$message;
+		$input = trim($input);
+		if(empty($input))
+		{
+			$errors[$theerror]="*";
+			$message ="Please fill in all the required fields";
+		}		
+	}
+	function ValidatePhone($home,$work,$cell,$theerror)
+	{
+		global $message,$errors;
+		if(empty($home) && empty($work) && empty($cell))
+		{
+			$errors[$theerror];
+			$message="At least one phone number must be entered";
+		}
+	}
+	
+	
+	
+	function load_provinces()
+	{
+	  global $connection, $provincerows, $retrieved;
+	  
+	  $sql=" call provinces_load() ";
+	  $connection->next_result();
+	  $retrieved =  $connection-> query( $sql );
+	  if ( $retrieved->num_rows )
+	  {
+		$provincerows = $retrieved->fetch_all(MYSQLI_ASSOC);
+	  }
+	  else
+	  {
+		die("Database Query failed, provinces");
+	  }
+			
+	}
+	
+	function load_countries()
+	{
+	global $connection, $retrievedcountries,$countryrows;
+	
+	$sql=" call countries_load() ";
+	$connection->next_result();
+	$retrievedcountries = $connection->query ( $sql );
+	if ( $retrievedcountries->num_rows )
+	{
+		$countryrows = $retrievedcountries->fetch_all( MYSQLI_ASSOC );
+	
+	}
+	else
+	{
+		die("Database Query failed, Counties");
+	}
+	
+	
+	}
+	
+	
+	
+	function customer_insert( $first, $last, $email, $pass )
+	{
+		global $connection, $custID;
+		$sql = " call customer_insert( '$first','$last','$email','$pass' ) ";
+		$connection->next_result();
+		
+		
+	
+		if ( $result = $connection -> query($sql) )
+		{
+		
+		
+		
+			$sql = " call customer_get_inserted_id( '$first','$last' ) ";
+			$connection->next_result();
+			$result = $connection->query ( $sql );
+			
+				if ( $result->num_rows )
+				{
+					$row = $result->fetch_row(); 
+				 
+				    $custID = $row[0];
+				
+				
+				}
+				return $custID;
+		
+		
+		
+		}
+		else
+		{
+			return "";
+		}
+	
+	}
+	
+	function address_insert ( $userId, $street,$suite,$city,$province,$country,$postal )
+	{
+		global $connection, $custID;
+		
+		$sql= " call addresses_insert ( $userId , '$street','$suite','$city','$province','$country','$postal'  ) ";
+		
+		$connection->next_result();
+		
+		$result = $connection -> query ( $sql );
+		
+		if ( $connection -> affected_rows )
+		{
+		 return $connection -> affected_rows;
+		
+		
+		}
+		else
+		{
+		  return 0;
+		}
+	
+	
+	}
+	
+	
+	function phone_insert ( $phoneNumber,$ext,$phoneType )
+	{
+		global $connection, $custID;
+		
+		$sql = " call phonenumbers_insert ( $custID, '$phoneNumber','$ext', '$phoneType' ) ";
+		$connection->next_result();
+		$result = $connection -> query ( $sql );
+		if( $connection->affected_rows )
+		{
+		  return $connection -> affected_rows;
+		
+		
+		}
+		else
+		{
+			return 0;
+		
+		
+		}
+		
+	
+	
+	}
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+?>
+<form method="POST" action="" autocomplete="off">
+<div class="divPage">
+	<div class="bodyContent">
+		<h2>Create Profile</h2>
+		<h3>Personal</h3>
+		<div class="row">
+			<label class="rowtextlabel">First Name</label>
+			<input class="rowinput" type="text" name="firstname" id="fname" maxlength="40" value="<?php echo $firstname; ?>"/>
+				<div class="errorStar">
+				<?php if(isset($errors['firstname'])) echo $errors['firstname'];?>				
+			</div>	
+			<label class="rowtextlabelright">Last Name</label>
+			<input class="rowinput" type="text" name="lastname" id="lname" maxlength="40" value="<?php echo $lastname; ?>" />
+				<div class="errorStar">
+				<?php if(isset($errors['lastname'])) echo $errors['lastname'];?>				
+			</div>	
+		</div>
+		<br />
+		<div class="row">
+			<label class="rowtextlabel">Email</label>
+			<input class="rowinputemail" type="text" name="email" id="email" maxlength="255" value="<?php echo $email; ?>" />		
+				<div class="errorStar">
+				<?php if(isset($errors['email'])) echo $errors['email'];?>				
+			</div>	
+		</div>
+		<br />
+		<div class="row">
+			<label class="rowtextlabel">Password</label>
+			<input class="rowinput" type="password" name="pswd" id="pswd" maxlength="15" value="<?php echo $password; ?>" />
+				<div class="errorStar">
+				<?php if(isset($errors['password'])) echo $errors['password'];?>				
+			</div>	
+			<label class="rowtextlabelright">confirm</label>
+			<input class="rowinput" type="password" name="confirm" id="confirm" value="<?php echo $confirm; ?>" />
+				<div class="errorStar">
+				<?php if(isset($errors['confirm'])) echo $errors['confirm'];?>				
+			</div>	
+		</div>
+		<br />
+		<h3>Address</h3>
+		<div class="row">
+			<label class="rowtextlabel">Street</label>
+			<input class="rowinput" type="text" name="street" id="street" maxlength="125" value="<?php echo $street; ?>" />
+				<div class="errorStar">
+				<?php if(isset($errors['street'])) echo $errors['street'];?>				
+			</div>	
+			<label class="rowtextlabelright">suite</label>
+			<input class="rowinput" type="text" name="suite" id="suite" maxlength="8" value="<?php echo $suite; ?>" />
+		</div>
+		<br />
+		<div class="row">
+			<label class="rowtextlabel">City</label>
+			<input class="rowinput" type="text" name="city" id="city" maxlength="35" value="<?php echo $city; ?>"/>
+				<div class="errorStar">
+				<?php if(isset($errors['city'])) echo $errors['city'];?>				
+			</div>	
+			<div class="orderdropdown">
+				<label class="rowtextlabelright">province</label>
+				&nbsp;
+				<select  name="province" selected="<?php echo $province; ?>">  
+					<option value="">Select</option>
+					<?php foreach( $provincerows as $prov ){ ?>
+					<option value=" <?php echo $prov['shortvalue']; ?>"> <?php echo $prov['province']; ?> </option>
+					
+					
+					<?php }?>
+					
+					
+				</select>
+					<div class="errorStar">
+				<?php if(isset($errors['province'])) echo $errors['province'];?>				
+			</div>	
+			</div>
+		</div>
+		<br />
+		<div class="row">
+			<label class="rowtextlabel">Postal</label>
+			<input class="rowinput" type="text" name="postalcode" id="postalcode" maxlength="7" value="<?php echo $postal; ?>"/>
+				<div class="errorStar">
+				<?php if(isset($errors['postalcode'])) echo $errors['postalcode'];?>				
+			</div>	
+		     <div class="orderdropdown">
+				<label class="rowtextlabelright">Country</label>				
+				&nbsp;
+			<select name= "country" value="<?php echo $country; ?>">  
+				<option value="">Select</option>
+				<?php  foreach ( $countryrows as $country ){ ?>
+				<option value=" <?php echo $country['shortvalue']; ?>"> <?php echo $country['country']; ?> </option>
+				<?php }?>
+				
+			
+			</select>
+					<div class="errorStar">
+						<?php if(isset($errors['country'])) echo $errors['country'];?>				
+					</div>	
+			</div>
+		</div>
+		<br />
+		<br />
+		<h3>Contact Numbers</h3>
+		<div class="row">
+			<label class="rowtextlabel">Home</label>
+			<input class="rowinput" type="text" name="homephone" id="homephone" maxlength="14" value="<?php echo $homephone; ?>"/>			
+			<label class="rowtextlabelright">Cell</label>
+			<input class="rowinput" type="text" name="cellphone" id="cellphone" maxlength="14" value="<?php echo $cellphone; ?>"/>
+			
+		</div>
+		<br />
+		<div class="row">
+			<label class="rowtextlabel">Work</label>
+			<input class="rowinput" type="text" name="workphone" id="workphone" maxlength="14"value="<?php echo $workphone; ?>"/>			
+			<label class="rowtextlabel">Extension</label>
+			<input class="rowinput" type="text" name="extension" id="ext" maxlength="6" value="<?php echo $extension; ?>"/>
+		</div>
+		<br />
+		<div class="divCenter" >
+		<br />
+			<div class="errorStar">
+				<?php if(!empty($message)) echo $message;?>				
+			</div>
+		<br />
+            <!-- save the profile information -->
+		<input class="button" type="submit" name="save" id="savebutton" value="Create Profile" />
+            <!--reset all the input fields --> 
+		<input class="button" type="submit" name="clear" id="clearbutton" value="Clear" />
+            <!-- go to loging page -->
+		<input class="button" type="submit" name="return" id="returnbutton" value="Go to Login" />
+		
+		</div>
+		</div>
+</div>
+</form>

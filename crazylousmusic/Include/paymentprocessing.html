@@ -1,0 +1,371 @@
+<?php
+include('./dbfile.php');
+	$errors = array();
+	$ordernumber = "";
+	$customername = "";
+	$ordernumber = "";
+	$orderamount="";
+	$amount = "";
+	$nameoncard="";
+	$expirydate ="";
+	$addressid = "";
+	$taxrate= "";
+	$pin="";
+	$card="";
+	$message="";
+	$subtotal="";
+	session_start();
+	$browsersess = session_id();
+	$custID= Validate_User_Logged_In();	
+	
+	
+	
+	
+	
+	
+	
+	
+	if($custID > 0)
+	{
+	Customer_Info($custID);
+	get_order_num($custID);
+	Calculate_summary();
+	}
+	else
+	{
+	
+	}
+
+
+
+	if(isset($_POST['save']))
+	{
+		$card = trim($_POST['card']);		
+		if(!empty($card))
+		{
+			if(payment_save($custID,$card))
+			{
+				if(create_invoice($custID, $ordernumber,$card))
+				{
+					header('Location: ./reciept.php');
+				}
+				else
+				{
+					echo "failed creating invoice";
+				}
+			}
+			else
+			{
+				// notify error
+				echo "failed inserting payment";
+			}
+		}
+	}
+	else if(isset($_POST['cancel']))
+	{
+		$orderid = $_POST['ordernumber'];
+		
+		if(cancel_order($orderid))
+		{
+			header('Location: ./reciept.php');
+		}
+		
+		
+	}
+	else if(isset($_POST['return']))
+	{
+		clearscreen();
+		//redirect the user back to the order page
+		// must pass the order number
+		header('Location: ./orderAlbums.php');
+		
+	}
+	else
+	{
+		//clearscreen();
+		$message="";
+	}
+
+function create_invoice($custid, $ordernumber,$card)
+{
+	global $connection, $addressid,$taxrate;
+	$sql="call customer_address_load_by_id($custid)";
+	$connection->next_result();
+	if($retrieved = $connection->query($sql))
+	{
+		if($retrieved->num_rows)
+		{
+			
+			$row = $retrieved->fetch_assoc();
+			$addressid = $row['addressid'];
+			
+			$sql = "call taxrate_load_active()";	
+			$connection->next_result();
+			if($retrieved = $connection->query($sql))
+			{
+				if($retrieved->num_rows)
+				{
+					$taxrow = $retrieved->fetch_row();
+					$taxrate = $taxrow[1];					
+					
+					$sql = "call invoice_insert($custid,$addressid,$ordernumber,'$card',$taxrate)";
+					echo $sql;
+					$connection->next_result();
+					if($retrieved = $connection->query($sql))
+					{
+						return 1;
+					}
+					else 
+					{
+						return 0;
+					}
+				}
+				else
+				{
+					return 0;
+				}
+				
+				
+			}	
+			else
+			{
+				return 0;
+			}
+		}
+		else
+		{
+			return 0;
+		}
+	}
+	else
+	{	
+		return 0;
+	}
+	
+	
+	//$sql = "call invoice_insert($custid,$address,$ordernumber,$tax)";
+}
+	
+function payment_save($custid, $method)
+{
+	global $connection, $orderamount,$ordernumber,$subtotal;
+	$sql = "call payment_insert($custid,$method,$orderamount,$ordernumber)";		
+	$connection->next_result();
+	if($retrieved = $connection->query($sql))
+	{		
+		return 1;
+	}
+	else
+	{		
+		return 0;
+	}
+}
+
+function cancel_order($orderid)
+{
+	global $connection;
+	$sql = "call order_cancel($orderid)";
+	$connection->next_result();
+	if($retrieved = $connection->query($sql))
+	{
+		return 1;
+	}
+	else
+	{
+		return 0;
+	}
+	
+}		
+function Calculate_summary()
+{
+	global $connection, $orderamount,$ordernumber,$subtotal;
+	$sql = "call orderdetails_load_by_order_id($ordernumber)";	
+	$connection->next_result();
+	if($retrieved = $connection->query($sql))
+	{		
+		if($retrieved->num_rows)
+		{
+			$itemsrow = $retrieved->fetch_all(MYSQLI_ASSOC);			
+			foreach($itemsrow as $item)
+			{			
+				$subtotal = $subtotal + $item['total'];
+			}	
+			$sql = "call taxrate_load_active()";	
+			$connection->next_result();
+			if($retrieved = $connection->query($sql))
+			{
+				if($retrieved->num_rows)
+				{
+					$taxrow = $retrieved->fetch_row();
+					$taxrate = $taxrow[1];
+					$taxes = $subtotal * $taxrate;
+					$orderamount = $subtotal + $taxes;		
+					
+				}							
+			}
+		}
+		else
+		{
+		}	
+	}
+}
+	function get_order_num($custid)
+	{
+		global $connection,$ordernumber;
+		$sql ="call customer_max_order('$custid')";
+		$connection->next_result();
+		if($result = $connection->query($sql))
+		{
+			if($result->num_rows)
+			{
+				$row = $result->fetch_row();			
+				$ordernumber = $row[0];
+				
+				return 1;
+			}
+			else
+				return 0;
+		}
+		else
+		{
+			return 0;
+		}
+		
+	}
+	function clearscreen()
+	{
+		global $ordernumber,$customername,$amount,$nameoncard,$expirydate,$pin,$message,$card;
+		$ordernumber = "";
+		$customername = "";
+		$amount = "";
+		$nameoncard="";
+		$expirydate ="";
+		$pin="";
+		$card="";
+		$message="";
+	}
+	function Validate_User_Logged_In()
+{
+		global $connection, $browsersess;
+		$sql ="call session_verify_logged_in('$browsersess')";
+		$connection->next_result();
+		$result = $connection->query($sql);
+		if($result->num_rows)
+		{
+			$row = $result->fetch_row();			
+			$custID = $row[0];
+			return $custID;
+		}	
+		else
+		{
+			return 0;
+		}
+}
+function Customer_Info($custID)
+{
+	global $connection, $customername; 
+		$sql ="call customer_address_load_by_id('$custID')";
+		$connection->next_result();
+		$result = $connection->query($sql);
+		if($result->num_rows)
+		{
+			$row = $result->fetch_row();			
+			$fname = $row[1];
+			$lname = $row[2];
+			$customername = $fname." ".$lname;			
+			return 1;
+		}	
+		else
+		{
+			return 0;
+		}
+}
+	function validateInput($input, $theerror)
+	{
+		global $errors,$message;
+		$input = trim($input);
+		if(empty($input))
+		{
+			$errors[$theerror]="*";
+			$message ="Please fill in all the required fields";
+		}		
+	}
+?>
+<form method="POST" action ="" autocomplete="off">
+<div class="divPage">
+	<div class="bodyContent">
+		<h3>Payment Processing</h3>
+		<div class="labelStyle2">
+		    <div class="dark">
+			<label for="ordernumber" class="dark">Order #</label>
+			</div>		
+			<div class="light">
+			     <input type="text" name = "ordernumber" readonly value ="<?php echo $ordernumber; ?>" />				
+			</div>
+			<div class="dark">	
+			<label for="customername">Customer </label>
+			</div>	
+			<div class="light">
+			<input type="text" name = "customername"  readonly value ="<?php echo $customername; ?>" />
+			</div>
+			<div class="dark">
+				<label for="amount"> Amount </label>	
+			</div>
+			<div class="light">
+				<input type="text" name = "orderamount"  readonly value ="<?php echo $orderamount; ?>" />
+			</div>
+		</div>
+		<br /> <br />
+		<div class="dark">
+			Payment Type
+		</div>
+			<select  name="card" value="<?php echo $card; ?>">  
+					<option value="">Select</option>
+					<option value="1">Visa</option>
+					<option value="2">Mastercard</option>
+			</select>
+		<br />
+		<br />
+		<div class="dark">
+			Name of Card
+		</div>
+		<div class="light">
+			<input type="text" name="nameoncard" value="<?php echo $nameoncard; ?> " />	
+				<div class="errorStar">
+				<?php if(isset($errors['cardname'])) echo $errors['cardname'];?>				
+			</div>
+		</div>
+		
+		
+		<div class="dark">
+			Expiry Date (mm/dd)
+		</div>
+		<div class="light">
+			<div class= "smallwidth">
+				<input type="text" name="expirydate" class="rowinputsmall" width="25px" value="<?php echo $expirydate; ?> " />
+				<?php if(isset($errors['exdate'])) echo $errors['exdate'];?>
+			</div>
+		</div>
+		<div class="dark">
+			Pin #
+		</div>
+		<div class="light">
+			<div class= "smallwidth">
+				<input type="text" name="pin" class="rowinputsmall" value="<?php echo $pin; ?> " />	
+				<?php if(isset($errors['pin'])) echo $errors['pin'];?>
+			</div>
+		</div>
+		<br />
+		<br />
+			<div class="errorStar">
+				<?php if(!empty($message)) echo $message;?>				
+			</div>
+		<br />	
+		<div class="divCenter">
+			<input class="button" type="submit" name="save" id="savebutton" value="Complete Order" />
+			<input class="button" type="submit" name="cancel" id="cancelbutton" value="Cancel Order" />
+			<input class="button" type="submit" name="return" id="returnbutton" value="Return to Orders" />
+		</div>
+	</div>
+</div>
+</form>
